@@ -7,11 +7,6 @@ from showData.process import process_lineage_hook_info, clear_all
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
-@app.route('/')
-def hello_world():
-
-    return 'Hello World!'
-
 @app.route('/create_graph', methods=["POST"])
 def parse_post():
     # 1、request.form['***'], 获取POST请求传过来的from-data数据
