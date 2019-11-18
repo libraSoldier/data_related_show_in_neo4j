@@ -11,14 +11,16 @@ def process_lineage_hook_info(json_dict):
     # data_dict = json.loads(lineage_info)
     data_dict = json_dict
 
+    # rec: 顶点dict
     vertices = data_dict["vertices"]
     vertices_dict = {}
     for elem in vertices:
-        key = elem["id"]
-        type = elem["vertexType"]
-        value = elem["vertexId"]
-        vertices_dict[key] = (type, value)
+        id = elem["id"] # 边id
+        vertex_type = elem["vertexType"] # 边类型
+        vertex_id = elem["vertexId"] # 字段名称
+        vertices_dict[id] = (vertex_type, vertex_id)
 
+    # rec: 边dict
     edges = data_dict["edges"]
     for elem in edges:
         sources = elem["sources"]
@@ -27,19 +29,22 @@ def process_lineage_hook_info(json_dict):
         expression = ""
         if "expression" in elem:
             expression = elem["expression"]
-        # 不考虑 join + group by 的情况，要不然数据量过多
+
         if edgeType == "PROJECTION":
-            for source in sources:
-                if vertices_dict[source][0] == "COLUMN":
-                    origin_column_name = vertices_dict[source][1]
-                elif vertices_dict[source][0] == "TABLE":
-                    origin_column_name = vertices_dict[source][1] + "." + expression
-                for target in targets:
-                    if vertices_dict[target][0] == "COLUMN":
-                        dest_column_name = vertices_dict[target][1]
-                    elif vertices_dict[target][0] == "TABLE":
-                        dest_column_name = vertices_dict[target][1] + "." + expression
-                    neo4j_insert(origin_column_name, dest_column_name)
+            do_insert(vertices_dict, expression, sources, targets, "PROJECTION")
+        elif edgeType == "PREDICATE":
+            do_insert(vertices_dict, expression, sources, targets, "PREDICATE")
+
+        # 不考虑 join + group by 的情况，要不然数据量过多
+        # if edgeType == "PROJECTION":
+        #     do_insert(vertices_dict, expression, sources, targets)
+        # if edgeType == "PREDICATE":
+        #     # 处理一对多的关系
+        #     if len(sources) == 1 and len(targets) > 1:
+        #         do_insert(vertices_dict, expression, sources, targets)
+        #     elif len(sources) > 1 and len(targets) > 1:
+        #         do_insert(vertices_dict, expression, sources, targets)
+
 # 登陆neo4j
 def login_neo4j():
     url = "http://localhost:7474"
@@ -48,11 +53,24 @@ def login_neo4j():
     # 实例化类
     return neo4jUtil.Neo4jUtil(url, user_name, pass_word)
 
-def neo4j_insert(origin_column_name, dest_column_name):
+def do_insert(vertices_dict, expression, sources, targets, relation_name):
+    for source in sources:
+        if vertices_dict[source][0] == "COLUMN":
+            origin_column_name = vertices_dict[source][1]
+        elif vertices_dict[source][0] == "TABLE":
+            origin_column_name = vertices_dict[source][1] + "." + expression
+        for target in targets:
+            if vertices_dict[target][0] == "COLUMN":
+                dest_column_name = vertices_dict[target][1]
+            elif vertices_dict[target][0] == "TABLE":
+                dest_column_name = vertices_dict[target][1] + "." + expression
+            neo4j_insert(origin_column_name, dest_column_name, relation_name)
+
+def neo4j_insert(origin_column_name, dest_column_name, relation_name):
     neo4jUtilObj = login_neo4j()
     neo4jUtilObj.create_column_node(origin_column_name)
     neo4jUtilObj.create_column_node(dest_column_name)
-    neo4jUtilObj.create_column_relation(origin_column_name, dest_column_name)
+    neo4jUtilObj.create_column_relation(origin_column_name, dest_column_name, relation_name)
 
 def clear_all():
     neo4jUtilObj = login_neo4j()
