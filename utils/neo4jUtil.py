@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from py2neo import Graph, authenticate, Node, Relationship
-
+# 注：py2neo版本为3.1.2
 class Neo4jUtil(object):
+
+    separator = "___"
 
     def __init__(self, url, username, password):
 
@@ -17,7 +19,7 @@ class Neo4jUtil(object):
 
     # 获取标签和节点名
     def get_label_and_node(self, node_info_list):
-        label_name_str = node_info_list[0] + "___" + node_info_list[1]
+        label_name_str = node_info_list[0] + self.separator + node_info_list[1]
         node_name_str = node_info_list[2]
         return label_name_str, node_name_str
 
@@ -40,15 +42,20 @@ class Neo4jUtil(object):
     # rec: 1、创建表节点
     def create_table_node(self, database_name, table_name, engine_url):
 
-        match_result = self.graph.run("MATCH (a:{0}) WHERE a.name ='{1}' RETURN a".format(database_name, table_name)).data()
+        match_result = self.graph.run("MATCH (a:{0}) WHERE a.name ='{1}' RETURN a".format(database_name + self.separator + table_name, table_name)).data()
 
         if len(match_result) == 0:
-            self.graph.run("CREATE (n:%s { name: '%s', type: 'TABLE', engineUrl: '%s' })" % (database_name, table_name, engine_url))
+            self.graph.run("CREATE (n:%s { name: '%s', type: 'TABLE', engineUrl: '%s', storage: '%s', table: '%s' })"
+                           % (database_name + self.separator + table_name, table_name, engine_url, database_name, table_name))
 
     # rec: 2、创建表关系
     def create_table_relation(self, origin_database, dest_database, origin_table, dest_table, write_type):
 
-        self.insert_relation(origin_database, dest_database, origin_table, dest_table, write_type)
+        origin_label = origin_database + self.separator + origin_table
+
+        dest_label = dest_database + self.separator + dest_table
+
+        self.insert_relation(origin_label, dest_label, origin_table, dest_table, write_type)
 
     # rec: 3、创建字段节点
     def create_column_node(self, node_name, engine_url):
@@ -57,6 +64,8 @@ class Neo4jUtil(object):
         if(3 != len(node_info_list)):
             return
 
+        storage_name = node_info_list[0]
+        table_name = node_info_list[1]
         label_str, node_str = self.get_label_and_node(node_info_list)
 
         # {0}是节点的标签名称：库名+表名
@@ -65,7 +74,8 @@ class Neo4jUtil(object):
 
         if len(match_result) == 0:
             # rec: 插入时节点时，label名称不能加引号，属性值需要加引号
-            self.graph.run("CREATE (n:%s { name: '%s', type: 'COLUMN', engineUrl: '%s' })" % (label_str, node_str, engine_url))
+            self.graph.run("CREATE (n:%s { name: '%s', type: 'COLUMN', engineUrl: '%s', storage: '%s', table: '%s' })"
+                           % (label_str, node_str, engine_url, storage_name, table_name))
 
     # rec: 4、创建字段节点关系
     def create_column_relation(self, origin_name, dest_name, relation_name):

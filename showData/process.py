@@ -12,6 +12,9 @@ def process_lineage_hook_info(json_dict):
 
     data_dict = json_dict
 
+    # rec: 这个地方不用单引号会报错，不知道为啥
+    data_dict = data_dict['content']
+
     # rec: 引擎URL
     engine_url = data_dict["engineUrl"]
 
@@ -29,15 +32,19 @@ def process_lineage_hook_info(json_dict):
     edges = data_dict["columnLineageList"]["edges"]
 
     for elem in edges:
+        elem = dict(elem)
         sources = elem["sources"]
         targets = elem["targets"]
-        edgeType = elem["edgeType"]
+        # edgeType设默认值
+        edgeType = "default"
+        # if elem.keys().__contains__("edgeType"):
+        #     edgeType = elem["edgeType"]
         expression = ""
         if "expression" in elem:
             expression = elem["expression"]
         # rec: 关系类型
-        if edgeType == "PROJECTION":
-            do_insert(neo4jUtilObj, vertices_dict, expression, sources, targets, "PROJECTION", engine_url)
+        # if edgeType != "PREDICATE":
+        do_insert(neo4jUtilObj, vertices_dict, expression, sources, targets, edgeType, engine_url)
         # elif edgeType == "PREDICATE":
         #     do_insert(neo4jUtilObj, vertices_dict, expression, sources, targets, "PREDICATE", engine_url)
 
@@ -51,15 +58,23 @@ def process_lineage_hook_info(json_dict):
             origin_database = input["database"]
             origin_table = input["table"]
             for output in table_output:
+                output = dict(output)
                 dest_database = output["database"]
                 dest_table = output["table"]
-                write_type = output["writeType"]
+                # write_type设置默认值
+                write_type = "default"
+                # if output.keys().__contains__("writeType"):
+                #     write_type = output["writeType"]
+                # if None == write_type or "" == write_type:
+                #     write_type = "default"
                 neo4j_insert_table_node(neo4jUtilObj, origin_database, dest_database, origin_table, dest_table,
                                         write_type, engine_url)
 
 # 登陆neo4j
 def login_neo4j():
-    url = "http://localhost:7474"
+    # url = "http://localhost:7474"
+    # url = "http://192.168.90.201/:7474"
+    url = "http://192.168.90.202/:7474"
     user_name = "neo4j"
     pass_word = "deploy"
     # 实例化类

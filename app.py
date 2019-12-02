@@ -25,6 +25,11 @@ def parse_get():
 
     return "清空数据成功！"
 
+@app.route('/test', methods=["GET"])
+def parse_test():
+
+    return "连通性正常！"
+
 
 if __name__ == '__main__':
 
